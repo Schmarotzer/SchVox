@@ -1,0 +1,378 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: #f5f5f5;
+}
+
+#app {
+    max-width: 1200px;
+    margin: 0 auto;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+h1 {
+    text-align: center;
+    color: #333;
+    margin-top: 20px;
+    margin-bottom: 10px;
+}
+
+/* Вкладки */
+.tabs {
+    display: flex;
+    border-bottom: 1px solid #ddd;
+    background-color: #f8f8f8;
+}
+
+.tab-button {
+    padding: 12px 20px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 14px;
+    color: #666;
+    border-bottom: 3px solid transparent;
+}
+
+.tab-button:hover {
+    background-color: #e9e9e9;
+}
+
+.tab-button.active {
+    color: #333;
+    border-bottom: 3px solid #4CAF50;
+}
+
+.tab-content {
+    display: none;
+    padding: 20px;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Разделитель для редактора */
+.split-view {
+    display: flex;
+    gap: 20px;
+}
+
+.left-panel, .right-panel {
+    flex: 1;
+}
+
+.left-panel {
+    border-right: 1px solid #eee;
+    padding-right: 15px;
+}
+
+.right-panel {
+    padding-left: 15px;
+}
+
+.command-input {
+    display: flex;
+    margin-bottom: 15px;
+}
+
+#command-input {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px 0 0 4px;
+}
+
+#add-command-btn {
+    padding: 8px 15px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 0 4px 4px 0;
+    cursor: pointer;
+}
+
+#commands-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#commands-list li {
+    padding: 8px;
+    border: 1px solid #eee;
+    margin-bottom: 5px;
+    border-radius: 4px;
+    cursor: pointer;
+    background-color: #f9f9f9;
+}
+
+#commands-list li:hover {
+    background-color: #f0f0f0;
+}
+
+#commands-list li.active {
+    background-color: #e8f5e8;
+    border-color: #4CAF50;
+}
+
+.scenario-controls {
+    margin-bottom: 15px;
+}
+
+.scenario-controls button {
+    padding: 8px 12px;
+    margin-right: 10px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+#save-scenario-btn {
+    background-color: #2196F3;
+    color: white;
+}
+
+#save-scenario-btn:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+#test-scenario-btn {
+    background-color: #FF9800;
+    color: white;
+}
+
+#test-scenario-btn:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+#actions-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    min-height: 200px;
+}
+
+.action-item {
+    padding: 10px;
+    border: 1px solid #eee;
+    margin-bottom: 5px;
+    border-radius: 4px;
+    background-color: #fafafa;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.action-item .action-info {
+    flex: 1;
+}
+
+.action-item .action-controls {
+    display: flex;
+    gap: 5px;
+}
+
+.action-item .action-controls input,
+.action-item .action-controls select,
+.action-item .action-controls button {
+    padding: 4px 8px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+}
+
+.action-item .action-controls button {
+    background-color: #f0f0f0;
+    cursor: pointer;
+}
+
+.action-controls {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+}
+
+.action-controls select, .action-controls button {
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.action-controls button {
+    background-color: #4CAF50;
+    color: white;
+    cursor: pointer;
+}
+
+/* Настройки */
+.settings-group {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.settings-group h3 {
+    margin-top: 0;
+    color: #333;
+}
+
+.settings-group label {
+    display: block;
+    margin-bottom: 8px;
+}
+
+.settings-group select, .settings-group input[type="checkbox"] {
+    margin-right: 5px;
+}
+
+#check-services-btn {
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* Журнал */
+#log-display {
+    height: 400px;
+    overflow-y: auto;
+    border: 1px solid #eee;
+    padding: 10px;
+    background-color: #fafafa;
+    font-family: monospace;
+    white-space: pre-wrap;
+}
+
+#clear-log-btn {
+    margin-top: 10px;
+    padding: 8px 15px;
+    background-color: #f44336;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* Модальное окно */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background-color: white;
+    margin: 5% auto;
+    padding: 20px;
+    border-radius: 8px;
+    width: 80%;
+    max-width: 800px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.keyboard-layout .row {
+    display: flex;
+    margin-bottom: 5px;
+    gap: 3px;
+}
+
+.key-btn {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+    background-color: white;
+    flex: 1;
+    min-width: 40px;
+}
+
+.key-btn:hover {
+    background-color: #e0e0e0;
+}
+
+.key-btn.wide {
+    flex: 1.5;
+    min-width: 80px;
+}
+
+.key-btn.extra-wide {
+    flex: 2;
+    min-width: 120px;
+}
+
+.key-btn.space {
+    flex: 3;
+    min-width: 200px;
+}
+
+#cancel-key-selection {
+    margin-top: 15px;
+    padding: 8px 15px;
+    background-color: #f44336;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* Темная тема */
+body.dark-theme {
+    background-color: #333;
+    color: #fff;
+}
+
+.dark-theme #app {
+    background-color: #444;
+    color: #fff;
+}
+
+.dark-theme .left-panel {
+    border-right: 1px solid #555;
+}
+
+.dark-theme #commands-list li {
+    background-color: #555;
+    border-color: #666;
+    color: #fff;
+}
+
+.dark-theme #commands-list li:hover {
+    background-color: #666;
+}
+
+.dark-theme .action-item {
+    background-color: #555;
+    border-color: #666;
+    color: #fff;
+}
+
+.dark-theme #log-display {
+    background-color: #555;
+    border-color: #666;
+    color: #fff;
+}
+
+.dark-theme .key-btn {
+    background-color: #666;
+    color: #fff;
+    border-color: #777;
+}
+
+.dark-theme .key-btn:hover {
+    background-color: #777;
+}
