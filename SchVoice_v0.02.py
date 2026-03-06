@@ -16,11 +16,14 @@ import keyboard
 import pyttsx3
 from pynput.mouse import Controller, Button
 
+<<<<<<< codex/find-program-purpose-yrzbqg
 try:
     import ctypes
 except ImportError:
     ctypes = None
 
+=======
+>>>>>>> main
 
 MOUSE_BUTTONS = {
     "левая": Button.left,
@@ -29,6 +32,7 @@ MOUSE_BUTTONS = {
     "боковая 1": getattr(Button, 'x1', Button.left),
     "боковая 2": getattr(Button, 'x2', Button.right),
 }
+<<<<<<< codex/find-program-purpose-yrzbqg
 
 _ALSA_ERROR_HANDLER_REF = None
 
@@ -98,6 +102,8 @@ QTabBar::tab:selected { background: #2563eb; color: white; }
 QSplitter::handle { background: #334155; width: 2px; }
 QScrollArea { border: none; }
 """
+=======
+>>>>>>> main
 
 
 class KeyboardLayoutWidget(QWidget):
@@ -283,17 +289,26 @@ class ActionItemWidget(QWidget):
             self.coord_mode_combo = QComboBox()
             self.coord_mode_combo.addItems(["абсолютные", "относительные"])
             self.coord_mode_combo.setCurrentText(self.action_data.get('coord_mode', "абсолютные"))
+<<<<<<< codex/find-program-purpose-yrzbqg
             self.coord_mode_combo.setMaximumWidth(125)
+=======
+>>>>>>> main
 
             self.unit_combo = QComboBox()
             self.unit_combo.addItems(["пиксели", "проценты"])
             self.unit_combo.setCurrentText(self.action_data.get('unit', "пиксели"))
+<<<<<<< codex/find-program-purpose-yrzbqg
             self.unit_combo.setMaximumWidth(110)
 
             self.x_input = QLineEdit(str(self.action_data.get('x', 0)))
             self.y_input = QLineEdit(str(self.action_data.get('y', 0)))
             self.x_input.setMaximumWidth(70)
             self.y_input.setMaximumWidth(70)
+=======
+
+            self.x_input = QLineEdit(str(self.action_data.get('x', 0)))
+            self.y_input = QLineEdit(str(self.action_data.get('y', 0)))
+>>>>>>> main
 
             layout.addWidget(QLabel("Координаты:"))
             layout.addWidget(self.coord_mode_combo)
@@ -308,12 +323,18 @@ class ActionItemWidget(QWidget):
             self.mouse_action_combo = QComboBox()
             self.mouse_action_combo.addItems(["кликнуть", "двойной клик", "удержание", "отпускание"])
             self.mouse_action_combo.setCurrentText(self.action_data.get('mouse_action', "кликнуть"))
+<<<<<<< codex/find-program-purpose-yrzbqg
             self.mouse_action_combo.setMaximumWidth(125)
+=======
+>>>>>>> main
 
             self.mouse_button_combo = QComboBox()
             self.mouse_button_combo.addItems(["левая", "средняя", "правая", "боковая 1", "боковая 2"])
             self.mouse_button_combo.setCurrentText(self.action_data.get('button', "левая"))
+<<<<<<< codex/find-program-purpose-yrzbqg
             self.mouse_button_combo.setMaximumWidth(110)
+=======
+>>>>>>> main
 
             layout.addWidget(QLabel("Действие:"))
             layout.addWidget(self.mouse_action_combo)
@@ -443,6 +464,7 @@ class EditorTab(QWidget):
                 'actions': [],
             }
 
+<<<<<<< codex/find-program-purpose-yrzbqg
     def get_splitter_state(self):
         return self.main_splitter.saveState()
 
@@ -452,6 +474,8 @@ class EditorTab(QWidget):
                 state = QByteArray.fromBase64(state.encode('utf-8'))
             self.main_splitter.restoreState(state)
 
+=======
+>>>>>>> main
     def initUI(self):
         root_layout = QVBoxLayout()
 
@@ -526,6 +550,7 @@ class EditorTab(QWidget):
 
         right_layout.addWidget(QLabel("Действия:"))
 
+<<<<<<< codex/find-program-purpose-yrzbqg
         self.variants_scroll = QScrollArea()
         self.variants_scroll.setWidgetResizable(True)
         self.variants_scroll.setMaximumHeight(88)
@@ -545,6 +570,24 @@ class EditorTab(QWidget):
         right_layout.addWidget(QLabel("Варианты голосовой команды:"))
         right_layout.addWidget(self.variants_scroll)
         right_layout.addLayout(variants_btn_layout)
+=======
+        variants_layout = QHBoxLayout()
+        self.variants_list = QListWidget()
+        self.variants_list.setMaximumHeight(85)
+        variants_btn_layout = QVBoxLayout()
+        self.add_variant_btn = QPushButton("+ вариант")
+        self.add_variant_btn.clicked.connect(self.add_variant)
+        self.remove_variant_btn = QPushButton("- вариант")
+        self.remove_variant_btn.clicked.connect(self.remove_selected_variant)
+        variants_btn_layout.addWidget(self.add_variant_btn)
+        variants_btn_layout.addWidget(self.remove_variant_btn)
+        variants_btn_layout.addStretch()
+        variants_layout.addWidget(self.variants_list)
+        variants_layout.addLayout(variants_btn_layout)
+
+        right_layout.addWidget(QLabel("Варианты голосовой команды:"))
+        right_layout.addLayout(variants_layout)
+>>>>>>> main
         right_layout.addLayout(action_selector_layout)
         right_layout.addWidget(self.actions_list)
         right_layout.addLayout(buttons_layout)
@@ -627,7 +670,11 @@ class EditorTab(QWidget):
             if self.current_command == command_text:
                 self.current_command = None
                 self.actions_list.clear()
+<<<<<<< codex/find-program-purpose-yrzbqg
                 self.refresh_variant_chips([])
+=======
+                self.variants_list.clear()
+>>>>>>> main
             self.is_modified = True
             self.save_btn.setEnabled(True)
 
@@ -636,6 +683,12 @@ class EditorTab(QWidget):
         command_text = item.text()
         self.current_command = command_text
         self.actions_list.clear()
+        self.variants_list.clear()
+
+        self.ensure_command_structure(command_text)
+
+        for variant in self.get_command_variants(command_text):
+            self.variants_list.addItem(variant)
 
         self.ensure_command_structure(command_text)
         self.refresh_variant_chips(self.get_command_variants(command_text))
@@ -730,12 +783,25 @@ class EditorTab(QWidget):
             return
 
         variants.append(variant)
+<<<<<<< codex/find-program-purpose-yrzbqg
         self.refresh_variant_chips(variants)
         self.is_modified = True
         self.save_btn.setEnabled(True)
 
     def remove_variant_by_index(self, row):
         if not self.current_command or row < 0:
+=======
+        self.variants_list.addItem(variant)
+        self.is_modified = True
+        self.save_btn.setEnabled(True)
+
+    def remove_selected_variant(self):
+        if not self.current_command:
+            return
+
+        row = self.variants_list.currentRow()
+        if row < 0:
+>>>>>>> main
             return
 
         self.ensure_command_structure(self.current_command)
@@ -745,6 +811,7 @@ class EditorTab(QWidget):
             return
 
         variants.pop(row)
+<<<<<<< codex/find-program-purpose-yrzbqg
         self.refresh_variant_chips(variants)
         self.is_modified = True
         self.save_btn.setEnabled(True)
@@ -761,6 +828,11 @@ class EditorTab(QWidget):
             chip_btn.setObjectName("chipButton")
             chip_btn.clicked.connect(lambda _, i=index: self.remove_variant_by_index(i))
             self.variants_layout.insertWidget(index, chip_btn)
+=======
+        self.variants_list.takeItem(row)
+        self.is_modified = True
+        self.save_btn.setEnabled(True)
+>>>>>>> main
 
     def save_commands(self):
         """Save commands to file"""
@@ -785,7 +857,10 @@ class EditorTab(QWidget):
             return
 
         if self.current_command in self.commands:
+<<<<<<< codex/find-program-purpose-yrzbqg
             self.update_actions_from_ui(self.current_command)
+=======
+>>>>>>> main
             self.execute_actions(self.get_command_actions(self.current_command))
             if self.log_callback:
                 self.log_callback(f"Тестирование сценария '{self.current_command}' завершено")
