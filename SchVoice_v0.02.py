@@ -14,6 +14,90 @@ import speech_recognition as sr
 import psutil
 import keyboard
 import pyttsx3
+from pynput.mouse import Controller, Button
+
+try:
+    import ctypes
+except ImportError:
+    ctypes = None
+
+
+MOUSE_BUTTONS = {
+    "левая": Button.left,
+    "средняя": Button.middle,
+    "правая": Button.right,
+    "боковая 1": getattr(Button, 'x1', Button.left),
+    "боковая 2": getattr(Button, 'x2', Button.right),
+}
+
+_ALSA_ERROR_HANDLER_REF = None
+
+
+def suppress_alsa_logs():
+    """Suppress noisy ALSA messages printed by audio backends."""
+    if ctypes is None:
+        return
+
+    try:
+        asound = ctypes.cdll.LoadLibrary('libasound.so')
+    except OSError:
+        return
+
+    ERROR_HANDLER_FUNC = ctypes.CFUNCTYPE(None, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p)
+
+    def _error_handler(_filename, _line, _function, _err, _fmt):
+        return
+
+    global _ALSA_ERROR_HANDLER_REF
+    _ALSA_ERROR_HANDLER_REF = ERROR_HANDLER_FUNC(_error_handler)
+    asound.snd_lib_error_set_handler(_ALSA_ERROR_HANDLER_REF)
+
+
+class HoverComboBox(QComboBox):
+    """ComboBox that opens popup on hover."""
+    def enterEvent(self, event):
+        super().enterEvent(event)
+        if self.isEnabled() and self.count() > 0:
+            self.showPopup()
+
+
+def modern_stylesheet():
+    return """
+QMainWindow, QWidget { background: #0f172a; color: #e2e8f0; font-size: 13px; }
+QLabel { color: #dbeafe; }
+QLineEdit, QComboBox, QListWidget, QTextEdit {
+    background: #111827;
+    color: #e5e7eb;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 6px;
+}
+QPushButton {
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-weight: 600;
+}
+QPushButton:hover { background: #3b82f6; }
+QPushButton:disabled { background: #475569; color: #cbd5e1; }
+QPushButton#chipButton {
+    background: #1f2937;
+    border: 1px solid #3b82f6;
+    color: #bfdbfe;
+    border-radius: 14px;
+    padding: 5px 10px;
+}
+QPushButton#chipButton:hover { background: #374151; }
+QListWidget::item { border-radius: 8px; margin: 3px; padding: 4px; }
+QListWidget::item:selected { background: #1d4ed8; color: white; }
+QTabWidget::pane { border: 1px solid #334155; border-radius: 10px; }
+QTabBar::tab { background: #1e293b; padding: 8px 14px; margin: 2px; border-radius: 8px; }
+QTabBar::tab:selected { background: #2563eb; color: white; }
+QSplitter::handle { background: #334155; width: 2px; }
+QScrollArea { border: none; }
+"""
 
 
 class KeyboardLayoutWidget(QWidget):
@@ -87,14 +171,17 @@ class KeyboardLayoutWidget(QWidget):
 
 class ActionItemWidget(QWidget):
     """Widget representing a single action item in the action list"""
-    def __init__(self, action_data, parent_list_widget=None):
+    def __init__(self, action_data, parent_list_widget=None, remove_callback=None):
         super().__init__()
         self.action_data = action_data
         self.parent_list_widget = parent_list_widget
+        self.remove_callback = remove_callback
         self.initUI()
 
     def initUI(self):
         layout = QHBoxLayout()
+        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setSpacing(6)
 
         # Add label for action type
         self.type_label = QLabel(self.action_data['type'])
@@ -105,6 +192,7 @@ class ActionItemWidget(QWidget):
         if self.action_data['type'] == "если активна программа":
             self.process_combo = QComboBox()
             self.update_process_list()
+            self.process_combo.setMaximumWidth(220)
             # Set the value from saved data
             if 'process' in self.action_data:
                 idx = self.process_combo.findText(self.action_data['process'])
@@ -116,6 +204,7 @@ class ActionItemWidget(QWidget):
         elif self.action_data['type'] == "если запущена программа":
             self.process_combo = QComboBox()
             self.update_process_list()
+            self.process_combo.setMaximumWidth(220)
             # Set the value from saved data
             if 'process' in self.action_data:
                 idx = self.process_combo.findText(self.action_data['process'])
@@ -126,6 +215,7 @@ class ActionItemWidget(QWidget):
 
         elif self.action_data['type'] == "открыть файл или программу":
             self.file_path_label = QLabel(self.action_data.get('file_path', "Файл не выбран"))
+            self.file_path_label.setMinimumWidth(180)
             self.file_button = QPushButton("Обзор...")
             self.file_button.clicked.connect(self.select_file)
             layout.addWidget(self.file_path_label)
@@ -134,6 +224,7 @@ class ActionItemWidget(QWidget):
         elif self.action_data['type'] == "закрыть программу":
             self.process_combo = QComboBox()
             self.update_process_list()
+            self.process_combo.setMaximumWidth(220)
             # Set the value from saved data
             if 'process' in self.action_data:
                 idx = self.process_combo.findText(self.action_data['process'])
@@ -145,6 +236,7 @@ class ActionItemWidget(QWidget):
         elif self.action_data['type'] == "сказать":
             self.text_input = QLineEdit()
             self.text_input.setPlaceholderText("Введите текст для произношения...")
+            self.text_input.setMaximumWidth(280)
             # Set the value from saved data
             if 'text' in self.action_data:
                 self.text_input.setText(self.action_data['text'])
@@ -154,6 +246,7 @@ class ActionItemWidget(QWidget):
         elif self.action_data['type'] == "подождать":
             self.ms_input = QLineEdit()
             self.ms_input.setPlaceholderText("Миллисекунды...")
+            self.ms_input.setMaximumWidth(90)
             # Set the value from saved data or default to 500
             default_value = str(self.action_data.get('ms', 500))
             self.ms_input.setText(default_value)
@@ -164,6 +257,7 @@ class ActionItemWidget(QWidget):
         elif self.action_data['type'] == "нажать клавишу":
             self.press_release_combo = QComboBox()
             self.press_release_combo.addItems(["Нажать", "Отжать", "Нажать и отжать"])
+            self.press_release_combo.setMaximumWidth(120)
             # Set the value from saved data
             if 'action' in self.action_data:
                 idx = self.press_release_combo.findText(self.action_data['action'])
@@ -172,6 +266,7 @@ class ActionItemWidget(QWidget):
             
             self.key_input = QLineEdit()
             self.key_input.setPlaceholderText("Клавиша...")
+            self.key_input.setMaximumWidth(90)
             # Set the value from saved data
             if 'key' in self.action_data:
                 self.key_input.setText(self.action_data['key'])
@@ -184,10 +279,60 @@ class ActionItemWidget(QWidget):
             layout.addWidget(self.key_input)
             layout.addWidget(self.key_button)
 
+        elif self.action_data['type'] == "переместить курсор мыши":
+            self.coord_mode_combo = QComboBox()
+            self.coord_mode_combo.addItems(["абсолютные", "относительные"])
+            self.coord_mode_combo.setCurrentText(self.action_data.get('coord_mode', "абсолютные"))
+            self.coord_mode_combo.setMaximumWidth(125)
+
+            self.unit_combo = QComboBox()
+            self.unit_combo.addItems(["пиксели", "проценты"])
+            self.unit_combo.setCurrentText(self.action_data.get('unit', "пиксели"))
+            self.unit_combo.setMaximumWidth(110)
+
+            self.x_input = QLineEdit(str(self.action_data.get('x', 0)))
+            self.y_input = QLineEdit(str(self.action_data.get('y', 0)))
+            self.x_input.setMaximumWidth(70)
+            self.y_input.setMaximumWidth(70)
+
+            layout.addWidget(QLabel("Координаты:"))
+            layout.addWidget(self.coord_mode_combo)
+            layout.addWidget(QLabel("X:"))
+            layout.addWidget(self.x_input)
+            layout.addWidget(QLabel("Y:"))
+            layout.addWidget(self.y_input)
+            layout.addWidget(QLabel("Единицы:"))
+            layout.addWidget(self.unit_combo)
+
+        elif self.action_data['type'] == "нажатие кнопок мыши":
+            self.mouse_action_combo = QComboBox()
+            self.mouse_action_combo.addItems(["кликнуть", "двойной клик", "удержание", "отпускание"])
+            self.mouse_action_combo.setCurrentText(self.action_data.get('mouse_action', "кликнуть"))
+            self.mouse_action_combo.setMaximumWidth(125)
+
+            self.mouse_button_combo = QComboBox()
+            self.mouse_button_combo.addItems(["левая", "средняя", "правая", "боковая 1", "боковая 2"])
+            self.mouse_button_combo.setCurrentText(self.action_data.get('button', "левая"))
+            self.mouse_button_combo.setMaximumWidth(110)
+
+            layout.addWidget(QLabel("Действие:"))
+            layout.addWidget(self.mouse_action_combo)
+            layout.addWidget(QLabel("Кнопка:"))
+            layout.addWidget(self.mouse_button_combo)
+
         # Add stretch to push everything to the left
         layout.addStretch()
 
+        self.remove_btn = QPushButton("🗑")
+        self.remove_btn.setToolTip("Удалить действие")
+        self.remove_btn.clicked.connect(self.on_remove_clicked)
+        layout.addWidget(self.remove_btn)
+
         self.setLayout(layout)
+
+    def on_remove_clicked(self):
+        if self.remove_callback:
+            self.remove_callback(self)
 
     def update_process_list(self):
         """Update the process combo box with currently running processes"""
@@ -242,6 +387,23 @@ class ActionItemWidget(QWidget):
         elif self.action_data['type'] == "нажать клавишу":
             base_data["action"] = self.press_release_combo.currentText()
             base_data["key"] = self.key_input.text()
+        elif self.action_data['type'] == "переместить курсор мыши":
+            try:
+                x_value = float(self.x_input.text().replace(',', '.'))
+            except ValueError:
+                x_value = 0
+            try:
+                y_value = float(self.y_input.text().replace(',', '.'))
+            except ValueError:
+                y_value = 0
+
+            base_data["coord_mode"] = self.coord_mode_combo.currentText()
+            base_data["x"] = x_value
+            base_data["y"] = y_value
+            base_data["unit"] = self.unit_combo.currentText()
+        elif self.action_data['type'] == "нажатие кнопок мыши":
+            base_data["mouse_action"] = self.mouse_action_combo.currentText()
+            base_data["button"] = self.mouse_button_combo.currentText()
         
         return base_data
 
@@ -256,11 +418,47 @@ class EditorTab(QWidget):
         self.current_command = None
         self.initUI()
 
-    def initUI(self):
-        layout = QHBoxLayout()
+    def get_command_actions(self, command_text):
+        command_data = self.commands.get(command_text, {})
+        if isinstance(command_data, dict):
+            return command_data.get('actions', [])
+        return command_data
 
-        # Left side - Command list
-        left_layout = QVBoxLayout()
+    def get_command_variants(self, command_text):
+        command_data = self.commands.get(command_text, {})
+        if isinstance(command_data, dict):
+            return command_data.get('variants', [command_text])
+        return [command_text]
+
+    def ensure_command_structure(self, command_text):
+        command_data = self.commands.get(command_text)
+        if isinstance(command_data, list):
+            self.commands[command_text] = {
+                'variants': [command_text],
+                'actions': command_data,
+            }
+        elif command_data is None:
+            self.commands[command_text] = {
+                'variants': [command_text],
+                'actions': [],
+            }
+
+    def get_splitter_state(self):
+        return self.main_splitter.saveState()
+
+    def restore_splitter_state(self, state):
+        if state:
+            if isinstance(state, str):
+                state = QByteArray.fromBase64(state.encode('utf-8'))
+            self.main_splitter.restoreState(state)
+
+    def initUI(self):
+        root_layout = QVBoxLayout()
+
+        self.main_splitter = QSplitter(Qt.Horizontal)
+
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
 
         # Command input area
         input_layout = QHBoxLayout()
@@ -288,7 +486,8 @@ class EditorTab(QWidget):
         left_layout.addWidget(self.commands_list)
 
         # Right side - Actions editor
-        right_layout = QVBoxLayout()
+        right_widget = QWidget()
+        right_layout = QVBoxLayout(right_widget)
 
         # Actions list
         self.actions_list = QListWidget()
@@ -298,7 +497,7 @@ class EditorTab(QWidget):
 
         # Action type selector
         action_selector_layout = QHBoxLayout()
-        self.action_type_combo = QComboBox()
+        self.action_type_combo = HoverComboBox()
         self.action_type_combo.addItems([
             "если активна программа",
             "если запущена программа",
@@ -306,7 +505,9 @@ class EditorTab(QWidget):
             "закрыть программу",
             "сказать",
             "подождать",
-            "нажать клавишу"
+            "нажать клавишу",
+            "переместить курсор мыши",
+            "нажатие кнопок мыши"
         ])
         self.add_action_btn = QPushButton("Добавить действие")
         self.add_action_btn.clicked.connect(self.add_action)
@@ -316,23 +517,46 @@ class EditorTab(QWidget):
 
         # Buttons layout
         buttons_layout = QHBoxLayout()
-        self.save_btn = QPushButton("💾")
+        self.save_btn = QPushButton("💾 Сохранить")
         self.save_btn.clicked.connect(self.save_commands)
-        self.test_btn = QPushButton("▶")
+        self.test_btn = QPushButton("▶ Пробный запуск")
         self.test_btn.clicked.connect(self.test_scenario)
         buttons_layout.addWidget(self.save_btn)
         buttons_layout.addWidget(self.test_btn)
 
         right_layout.addWidget(QLabel("Действия:"))
+
+        self.variants_scroll = QScrollArea()
+        self.variants_scroll.setWidgetResizable(True)
+        self.variants_scroll.setMaximumHeight(88)
+        self.variants_holder = QWidget()
+        self.variants_layout = QHBoxLayout(self.variants_holder)
+        self.variants_layout.setContentsMargins(4, 4, 4, 4)
+        self.variants_layout.setSpacing(6)
+        self.variants_layout.addStretch()
+        self.variants_scroll.setWidget(self.variants_holder)
+
+        variants_btn_layout = QHBoxLayout()
+        self.add_variant_btn = QPushButton("+ вариант")
+        self.add_variant_btn.clicked.connect(self.add_variant)
+        variants_btn_layout.addWidget(self.add_variant_btn)
+        variants_btn_layout.addStretch()
+
+        right_layout.addWidget(QLabel("Варианты голосовой команды:"))
+        right_layout.addWidget(self.variants_scroll)
+        right_layout.addLayout(variants_btn_layout)
         right_layout.addLayout(action_selector_layout)
         right_layout.addWidget(self.actions_list)
         right_layout.addLayout(buttons_layout)
 
         # Combine both sides
-        layout.addLayout(left_layout)
-        layout.addLayout(right_layout)
+        self.main_splitter.addWidget(left_widget)
+        self.main_splitter.addWidget(right_widget)
+        self.main_splitter.setStretchFactor(0, 3)
+        self.main_splitter.setStretchFactor(1, 5)
 
-        self.setLayout(layout)
+        root_layout.addWidget(self.main_splitter)
+        self.setLayout(root_layout)
 
         # Initially disable test button
         self.test_btn.setEnabled(False)
@@ -341,7 +565,10 @@ class EditorTab(QWidget):
         """Add a new command to the list"""
         command_text = self.command_input.text().strip()
         if command_text and command_text not in self.commands:
-            self.commands[command_text] = []
+            self.commands[command_text] = {
+                'variants': [command_text],
+                'actions': [],
+            }
             item = QListWidgetItem(command_text)
             self.commands_list.addItem(item)
             self.command_input.clear()
@@ -355,6 +582,13 @@ class EditorTab(QWidget):
         if ok and new_command and new_command != old_command:
             # Update commands dictionary
             self.commands[new_command] = self.commands.pop(old_command)
+            command_data = self.commands[new_command]
+            if isinstance(command_data, dict):
+                variants = command_data.get('variants', [])
+                if old_command in variants:
+                    command_data['variants'] = [new_command if v == old_command else v for v in variants]
+                elif not variants:
+                    command_data['variants'] = [new_command]
             # Update list item
             item.setText(new_command)
             # If this was the current command, update reference
@@ -393,6 +627,7 @@ class EditorTab(QWidget):
             if self.current_command == command_text:
                 self.current_command = None
                 self.actions_list.clear()
+                self.refresh_variant_chips([])
             self.is_modified = True
             self.save_btn.setEnabled(True)
 
@@ -402,9 +637,12 @@ class EditorTab(QWidget):
         self.current_command = command_text
         self.actions_list.clear()
 
+        self.ensure_command_structure(command_text)
+        self.refresh_variant_chips(self.get_command_variants(command_text))
+
         if command_text in self.commands:
-            for action_data in self.commands[command_text]:
-                action_widget = ActionItemWidget(action_data)
+            for action_data in self.get_command_actions(command_text):
+                action_widget = ActionItemWidget(action_data, remove_callback=self.remove_action_widget)
                 
                 list_item = QListWidgetItem()
                 list_item.setSizeHint(action_widget.sizeHint())
@@ -423,15 +661,32 @@ class EditorTab(QWidget):
         action_data = {"type": action_type}
         if action_type == "подождать":
             action_data["ms"] = 500  # Default wait time
-        
-        action_widget = ActionItemWidget(action_data)
+        elif action_type == "переместить курсор мыши":
+            action_data.update({"coord_mode": "абсолютные", "x": 0, "y": 0, "unit": "пиксели"})
+        elif action_type == "нажатие кнопок мыши":
+            action_data.update({"mouse_action": "кликнуть", "button": "левая"})
+
+        action_widget = ActionItemWidget(action_data, remove_callback=self.remove_action_widget)
         list_item = QListWidgetItem()
         list_item.setSizeHint(action_widget.sizeHint())
         self.actions_list.addItem(list_item)
         self.actions_list.setItemWidget(list_item, action_widget)
 
         # Add to command data
-        self.commands[self.current_command].append(action_data)
+        self.ensure_command_structure(self.current_command)
+        self.commands[self.current_command]['actions'].append(action_data)
+        self.is_modified = True
+        self.save_btn.setEnabled(True)
+
+    def remove_action_widget(self, widget):
+        for i in range(self.actions_list.count()):
+            item = self.actions_list.item(i)
+            if self.actions_list.itemWidget(item) == widget:
+                self.actions_list.takeItem(i)
+                break
+
+        if self.current_command:
+            self.update_actions_from_ui(self.current_command)
         self.is_modified = True
         self.save_btn.setEnabled(True)
 
@@ -449,13 +704,63 @@ class EditorTab(QWidget):
 
     def update_actions_from_ui(self, command_text):
         """Update the actions data from UI"""
+        self.ensure_command_structure(command_text)
         actions = []
         for i in range(self.actions_list.count()):
             item = self.actions_list.item(i)
             widget = self.actions_list.itemWidget(item)
             if isinstance(widget, ActionItemWidget):
                 actions.append(widget.get_action_data())
-        self.commands[command_text] = actions
+        self.commands[command_text]['actions'] = actions
+
+    def add_variant(self):
+        if not self.current_command:
+            QMessageBox.warning(self, "Предупреждение", "Сначала выберите команду")
+            return
+
+        variant, ok = QInputDialog.getText(self, "Добавить вариант", "Вариант голосовой команды:")
+        variant = variant.strip()
+        if not ok or not variant:
+            return
+
+        self.ensure_command_structure(self.current_command)
+        variants = self.commands[self.current_command]['variants']
+        if variant in variants:
+            QMessageBox.information(self, "Информация", "Такой вариант уже существует")
+            return
+
+        variants.append(variant)
+        self.refresh_variant_chips(variants)
+        self.is_modified = True
+        self.save_btn.setEnabled(True)
+
+    def remove_variant_by_index(self, row):
+        if not self.current_command or row < 0:
+            return
+
+        self.ensure_command_structure(self.current_command)
+        variants = self.commands[self.current_command]['variants']
+        if len(variants) <= 1:
+            QMessageBox.warning(self, "Предупреждение", "У сценария должен остаться хотя бы один вариант")
+            return
+
+        variants.pop(row)
+        self.refresh_variant_chips(variants)
+        self.is_modified = True
+        self.save_btn.setEnabled(True)
+
+    def refresh_variant_chips(self, variants):
+        while self.variants_layout.count() > 1:
+            item = self.variants_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+
+        for index, variant in enumerate(variants):
+            chip_btn = QPushButton(f"{variant}  ✕")
+            chip_btn.setObjectName("chipButton")
+            chip_btn.clicked.connect(lambda _, i=index: self.remove_variant_by_index(i))
+            self.variants_layout.insertWidget(index, chip_btn)
 
     def save_commands(self):
         """Save commands to file"""
@@ -480,12 +785,14 @@ class EditorTab(QWidget):
             return
 
         if self.current_command in self.commands:
-            self.execute_actions(self.commands[self.current_command])
+            self.update_actions_from_ui(self.current_command)
+            self.execute_actions(self.get_command_actions(self.current_command))
             if self.log_callback:
                 self.log_callback(f"Тестирование сценария '{self.current_command}' завершено")
 
     def execute_actions(self, actions):
         """Execute a list of actions"""
+        mouse = Controller()
         for action in actions:
             action_type = action['type']
 
@@ -522,6 +829,42 @@ class EditorTab(QWidget):
                     keyboard.release(action['key'])
                 elif action['action'] == "Нажать и отжать":
                     keyboard.press_and_release(action['key'])
+            elif action_type == "переместить курсор мыши":
+                self.move_mouse_cursor(mouse, action)
+            elif action_type == "нажатие кнопок мыши":
+                self.execute_mouse_button_action(mouse, action)
+
+    def move_mouse_cursor(self, mouse, action):
+        x_value = float(action.get('x', 0))
+        y_value = float(action.get('y', 0))
+        unit = action.get('unit', 'пиксели')
+        coord_mode = action.get('coord_mode', 'абсолютные')
+
+        if unit == 'проценты':
+            screen = QApplication.primaryScreen()
+            geometry = screen.geometry()
+            x_value = geometry.width() * x_value / 100.0
+            y_value = geometry.height() * y_value / 100.0
+
+        if coord_mode == 'относительные':
+            current_x, current_y = mouse.position
+            mouse.position = (int(current_x + x_value), int(current_y + y_value))
+        else:
+            mouse.position = (int(x_value), int(y_value))
+
+    def execute_mouse_button_action(self, mouse, action):
+        button_name = action.get('button', 'левая')
+        button = MOUSE_BUTTONS.get(button_name, Button.left)
+        mouse_action = action.get('mouse_action', 'кликнуть')
+
+        if mouse_action == 'кликнуть':
+            mouse.click(button, 1)
+        elif mouse_action == 'двойной клик':
+            mouse.click(button, 2)
+        elif mouse_action == 'удержание':
+            mouse.press(button)
+        elif mouse_action == 'отпускание':
+            mouse.release(button)
 
     def get_active_window_process(self):
         """Get the name of the currently active window process"""
@@ -735,51 +1078,28 @@ class VoiceThread(QThread):
     def run(self):
         """Main thread loop for voice recognition"""
         self.running = True
-        while self.running:
-            try:
-                if self.push_to_talk_mode:
-                    # Wait for hotkey press
-                    if keyboard.is_pressed(self.hotkey):
-                        with self.microphone as source:
-                            # While hotkey is pressed, record
-                            while keyboard.is_pressed(self.hotkey) and self.running:
-                                try:
-                                    audio = self.recognizer.listen(source, timeout=1, phrase_time_limit=5)
-                                    text = self.recognizer.recognize_google(audio, language="ru-RU")
-                                    self.voice_detected.emit(text.lower())
-                                    self.last_voice_time = time.time()
-                                except sr.WaitTimeoutError:
-                                    continue
-                                except sr.UnknownValueError:
-                                    continue
-                                except sr.RequestError:
-                                    continue
-                                time.sleep(0.1)
-                else:
-                    with self.microphone as source:
-                        self.recognizer.adjust_for_ambient_noise(source)
-                        audio = self.recognizer.listen(source, timeout=2, phrase_time_limit=5)
-                        
-                        # Check if enough time has passed since last voice
+        try:
+            with self.microphone as source:
+                self.recognizer.adjust_for_ambient_noise(source, duration=0.4)
+                while self.running:
+                    try:
+                        if self.push_to_talk_mode:
+                            if not keyboard.is_pressed(self.hotkey):
+                                time.sleep(0.05)
+                                continue
+
+                        audio = self.recognizer.listen(source, timeout=1.5, phrase_time_limit=5)
                         current_time = time.time()
                         if current_time - self.last_voice_time > self.voice_timeout:
                             text = self.recognizer.recognize_google(audio, language="ru-RU")
                             self.voice_detected.emit(text.lower())
                             self.last_voice_time = current_time
-
-            except sr.WaitTimeoutError:
-                # Timeout occurred, continue listening
-                continue
-            except sr.UnknownValueError:
-                # Recognition failed, continue listening
-                continue
-            except sr.RequestError:
-                # Service error, continue listening
-                continue
-            except Exception:
-                # Other error, continue listening
-                continue
-            time.sleep(0.1)
+                    except (sr.WaitTimeoutError, sr.UnknownValueError, sr.RequestError):
+                        continue
+                    except Exception:
+                        continue
+        except Exception:
+            return
 
     def stop(self):
         """Stop the voice recognition thread"""
@@ -790,6 +1110,7 @@ class MainWindow(QMainWindow):
     """Main application window"""
     def __init__(self):
         super().__init__()
+        self.settings_store = QSettings("SchVox", "SchVoice")
         self.setWindowTitle("SchVoice v0.02")
         self.setGeometry(100, 100, 1000, 700)
 
@@ -814,6 +1135,7 @@ class MainWindow(QMainWindow):
 
         # Load existing commands
         self.load_commands()
+        self.editor_tab.restore_splitter_state(self.settings_store.value("editor/splitter_state", b""))
 
         # Start voice recognition thread
         self.voice_thread = VoiceThread()
@@ -834,20 +1156,15 @@ class MainWindow(QMainWindow):
         log_msg = f"пользователь сказал: {text}"
 
         # Check if the command exists in our list
-        commands = self.get_commands()
-        matched_command = None
-
-        for cmd in commands:
-            if cmd.lower() == text:
-                matched_command = cmd
-                break
+        commands = self.normalize_commands(self.get_commands())
+        matched_command = self.find_matching_scenario(commands, text)
 
         if matched_command:
             log_msg += f" - команда найдена, запуск сценария '{matched_command}'"
             self.log_tab.add_log_entry(log_msg)
 
             # Execute the corresponding actions
-            command_actions = commands[matched_command]
+            command_actions = commands[matched_command]['actions']
             self.editor_tab.execute_actions(command_actions)
         else:
             log_msg += " - команда не найдена, пропуск"
@@ -865,7 +1182,7 @@ class MainWindow(QMainWindow):
         """Load commands from file"""
         try:
             with open('commands.json', 'r', encoding='utf-8') as f:
-                commands = json.load(f)
+                commands = self.normalize_commands(json.load(f))
                 # Populate the commands list in the editor
                 for command in commands:
                     item = QListWidgetItem(command)
@@ -873,6 +1190,31 @@ class MainWindow(QMainWindow):
                 self.editor_tab.commands = commands
         except FileNotFoundError:
             pass  # File doesn't exist yet, that's OK
+
+    def normalize_commands(self, commands):
+        normalized = {}
+        for command_name, command_data in commands.items():
+            if isinstance(command_data, list):
+                normalized[command_name] = {
+                    'variants': [command_name],
+                    'actions': command_data,
+                }
+            else:
+                variants = command_data.get('variants', [command_name])
+                actions = command_data.get('actions', [])
+                normalized[command_name] = {
+                    'variants': variants if variants else [command_name],
+                    'actions': actions,
+                }
+        return normalized
+
+    def find_matching_scenario(self, commands, text):
+        lowered_text = text.lower().strip()
+        for scenario_name, scenario_data in commands.items():
+            for variant in scenario_data.get('variants', []):
+                if variant.lower().strip() == lowered_text:
+                    return scenario_name
+        return None
 
     def update_voice_thread_settings(self):
         """Update voice thread settings based on current settings"""
@@ -882,6 +1224,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         """Clean up when closing the application"""
+        self.settings_store.setValue("editor/splitter_state", self.editor_tab.get_splitter_state())
         if self.voice_thread:
             self.voice_thread.stop()
             self.voice_thread.wait()
@@ -889,10 +1232,10 @@ class MainWindow(QMainWindow):
 
 
 def main():
+    suppress_alsa_logs()
     app = QApplication(sys.argv)
-    
-    # Apply style sheet for modern look
-    app.setStyle('Fusion')  # Modern look
+    app.setStyle('Fusion')
+    app.setStyleSheet(modern_stylesheet())
     
     window = MainWindow()
     window.show()
